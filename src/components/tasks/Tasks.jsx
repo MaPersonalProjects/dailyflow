@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useTasksContext as useTasks } from '../../contexts/TasksContext.jsx'
+import { useRemindersContext } from '../../contexts/RemindersContext.jsx'
 import { isTaskCompletedOn } from '../../hooks/useTasks.js'
 import { getToday } from '../../utils/dateHelpers.js'
 import { TaskFilter } from './TaskFilter.jsx'
@@ -8,8 +9,14 @@ import { TaskList } from './TaskList.jsx'
 import { ImportModal } from '../import/ImportModal.jsx'
 import { BulkBar } from '../common/BulkBar.jsx'
 
+const buildTaskDatetime = (task) => {
+  if (!task.dueDate) return null
+  return new Date(`${task.dueDate}T${task.dueTime || '09:00'}`).toISOString()
+}
+
 export function Tasks() {
   const { tasks, addTask, updateTask, deleteTask, toggleComplete, reorderTasks, bulkAddTasks, bulkDeleteTasks } = useTasks()
+  const { reminders, addReminder, updateReminder, deleteReminder } = useRemindersContext()
   const [filters, setFilters] = useState({ priority: '', category: '', showCompleted: false })
   const [showForm, setShowForm] = useState(false)
   const [showImport, setShowImport] = useState(false)
@@ -30,8 +37,24 @@ export function Tasks() {
   const handleSubmit = (data) => {
     if (editingTask) {
       updateTask(editingTask.id, data)
+      const updatedTask = { ...editingTask, ...data }
+      const datetime = buildTaskDatetime(updatedTask)
+      const linked = reminders.find((r) => r.sourceId === editingTask.id && r.sourceType === 'task')
+      if (linked) {
+        if (datetime) {
+          updateReminder(linked.id, { title: updatedTask.title, datetime, notified: false })
+        } else {
+          deleteReminder(linked.id)
+        }
+      } else if (datetime) {
+        addReminder({ title: updatedTask.title, datetime, recurring: 'none', sourceId: editingTask.id, sourceType: 'task', notified: false, done: false })
+      }
     } else {
-      addTask(data)
+      const newTask = addTask(data)
+      const datetime = buildTaskDatetime(newTask)
+      if (datetime && !reminders.some((r) => r.sourceId === newTask.id && r.sourceType === 'task')) {
+        addReminder({ title: newTask.title, datetime, recurring: 'none', sourceId: newTask.id, sourceType: 'task', notified: false, done: false })
+      }
     }
     setShowForm(false)
     setEditingTask(null)
@@ -55,8 +78,19 @@ export function Tasks() {
     setSelectedIds(new Set())
   }
 
+  const handleDelete = (id) => {
+    const linked = reminders.find((r) => r.sourceId === id && r.sourceType === 'task')
+    if (linked) deleteReminder(linked.id)
+    deleteTask(id)
+  }
+
   const handleBulkDelete = () => {
-    bulkDeleteTasks([...selectedIds])
+    const ids = [...selectedIds]
+    ids.forEach((id) => {
+      const linked = reminders.find((r) => r.sourceId === id && r.sourceType === 'task')
+      if (linked) deleteReminder(linked.id)
+    })
+    bulkDeleteTasks(ids)
     exitSelectMode()
   }
 
@@ -95,7 +129,7 @@ export function Tasks() {
         <TaskList
           tasks={filtered}
           onToggle={toggleComplete}
-          onDelete={deleteTask}
+          onDelete={handleDelete}
           onEdit={handleEdit}
           onReorder={reorderTasks}
           today={today}
@@ -127,7 +161,16 @@ export function Tasks() {
       {showImport && (
         <ImportModal
           mode="tasks"
-          onImportTasks={(taskList) => { bulkAddTasks(taskList); setShowImport(false) }}
+          onImportTasks={(taskList) => {
+            const newTasks = bulkAddTasks(taskList)
+            newTasks.forEach((t) => {
+              const datetime = buildTaskDatetime(t)
+              if (datetime && !reminders.some((r) => r.sourceId === t.id && r.sourceType === 'task')) {
+                addReminder({ title: t.title, datetime, recurring: 'none', sourceId: t.id, sourceType: 'task', notified: false, done: false })
+              }
+            })
+            setShowImport(false)
+          }}
           onClose={() => setShowImport(false)}
         />
       )}

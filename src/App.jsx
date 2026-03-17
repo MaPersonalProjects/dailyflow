@@ -8,6 +8,7 @@ import { Schedule } from './components/schedule/Schedule.jsx'
 import { Habits } from './components/habits/Habits.jsx'
 import { Reminders } from './components/reminders/Reminders.jsx'
 import { TasksProvider } from './contexts/TasksContext.jsx'
+import { RemindersProvider } from './contexts/RemindersContext.jsx'
 
 const SECTION_TITLES = {
   today: 'Today',
@@ -23,6 +24,7 @@ export default function App() {
   const title = SECTION_TITLES[activeSection] ?? 'Today'
 
   return (
+    <RemindersProvider>
     <TasksProvider>
       <div className="flex h-screen overflow-hidden bg-gray-50">
         <Sidebar activeSection={activeSection} onNavigate={setActiveSection} />
@@ -42,5 +44,6 @@ export default function App() {
         <MobileNav activeSection={activeSection} onNavigate={setActiveSection} />
       </div>
     </TasksProvider>
+    </RemindersProvider>
   )
 }

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { format } from 'date-fns'
 import { useSchedule } from '../../hooks/useSchedule.js'
+import { useRemindersContext } from '../../contexts/RemindersContext.jsx'
 import { DayView } from './DayView.jsx'
 import { WeekView } from './WeekView.jsx'
 import { EventForm } from './EventForm.jsx'
@@ -8,8 +9,17 @@ import { ImportModal } from '../import/ImportModal.jsx'
 import { BulkBar } from '../common/BulkBar.jsx'
 import { getWeekStart, addDays, toISODate } from '../../utils/dateHelpers.js'
 
+const buildEventDatetime = (ev) => {
+  if (!ev.date || !ev.startTime) return null
+  return new Date(`${ev.date}T${ev.startTime}`).toISOString()
+}
+
+const toRealId = (id) =>
+  typeof id === 'string' && id.includes('_') ? parseInt(id.split('_')[0], 10) : Number(id)
+
 export function Schedule() {
   const { addEvent, updateEvent, deleteEvent, getEventsForDate, getEventsForWeek, bulkAddEvents, bulkDeleteEvents } = useSchedule()
+  const { reminders, addReminder, updateReminder, deleteReminder } = useRemindersContext()
   const [view, setView] = useState('day')
   const [currentDate, setCurrentDate] = useState(new Date())
   const [showForm, setShowForm] = useState(false)
@@ -46,10 +56,26 @@ export function Schedule() {
   const handleSubmit = (data) => {
     const formData = defaultTime && !data.startTime ? { ...data, startTime: defaultTime } : data
     if (editingEvent) {
-      const realId = typeof editingEvent.id === 'string' ? parseInt(editingEvent.id.split('_')[0], 10) : editingEvent.id
+      const realId = toRealId(editingEvent.id)
       updateEvent(realId, formData)
+      const updatedEvent = { ...editingEvent, ...formData }
+      const datetime = buildEventDatetime(updatedEvent)
+      const linked = reminders.find((r) => toRealId(r.sourceId) === realId && r.sourceType === 'event')
+      if (linked) {
+        if (datetime) {
+          updateReminder(linked.id, { title: updatedEvent.title, datetime, notified: false })
+        } else {
+          deleteReminder(linked.id)
+        }
+      } else if (datetime) {
+        addReminder({ title: updatedEvent.title, datetime, recurring: 'none', sourceId: realId, sourceType: 'event', notified: false, done: false })
+      }
     } else {
-      addEvent(formData)
+      const newEvent = addEvent(formData)
+      const datetime = buildEventDatetime(newEvent)
+      if (datetime && !reminders.some((r) => toRealId(r.sourceId) === newEvent.id && r.sourceType === 'event')) {
+        addReminder({ title: newEvent.title, datetime, recurring: 'none', sourceId: newEvent.id, sourceType: 'event', notified: false, done: false })
+      }
     }
     setShowForm(false)
     setEditingEvent(null)
@@ -70,8 +96,21 @@ export function Schedule() {
     setSelectedIds(new Set())
   }
 
+  const handleDelete = (id) => {
+    const realId = toRealId(id)
+    const linked = reminders.find((r) => toRealId(r.sourceId) === realId && r.sourceType === 'event')
+    if (linked) deleteReminder(linked.id)
+    deleteEvent(id)
+  }
+
   const handleBulkDelete = () => {
-    bulkDeleteEvents([...selectedIds])
+    const ids = [...selectedIds]
+    ids.forEach((id) => {
+      const realId = toRealId(id)
+      const linked = reminders.find((r) => toRealId(r.sourceId) === realId && r.sourceType === 'event')
+      if (linked) deleteReminder(linked.id)
+    })
+    bulkDeleteEvents(ids)
     exitSelectMode()
   }
 
@@ -138,7 +177,7 @@ export function Schedule() {
             events={dayEvents}
             onAdd={handleAdd}
             onEdit={handleEdit}
-            onDelete={deleteEvent}
+            onDelete={handleDelete}
             selectMode={selectMode}
             selectedIds={selectedIds}
             onToggleSelect={toggleSelect}
@@ -149,7 +188,7 @@ export function Schedule() {
             events={weekEvents}
             onAdd={handleAdd}
             onEdit={handleEdit}
-            onDelete={deleteEvent}
+            onDelete={handleDelete}
             selectMode={selectMode}
             selectedIds={selectedIds}
             onToggleSelect={toggleSelect}
@@ -183,7 +222,16 @@ export function Schedule() {
       {showImport && (
         <ImportModal
           mode="schedule"
-          onImportSchedule={(events) => { bulkAddEvents(events); setShowImport(false) }}
+          onImportSchedule={(events) => {
+            const newEvents = bulkAddEvents(events)
+            newEvents.forEach((ev) => {
+              const datetime = buildEventDatetime(ev)
+              if (datetime && !reminders.some((r) => toRealId(r.sourceId) === ev.id && r.sourceType === 'event')) {
+                addReminder({ title: ev.title, datetime, recurring: 'none', sourceId: ev.id, sourceType: 'event', notified: false, done: false })
+              }
+            })
+            setShowImport(false)
+          }}
           onClose={() => setShowImport(false)}
         />
       )}

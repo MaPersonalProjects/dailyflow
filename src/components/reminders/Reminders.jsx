@@ -1,20 +1,15 @@
-import { useState, useEffect } from 'react'
-import { useReminders } from '../../hooks/useReminders.js'
+import { useState } from 'react'
+import { useRemindersContext } from '../../contexts/RemindersContext.jsx'
 import { ReminderList } from './ReminderList.jsx'
 import { ReminderForm } from './ReminderForm.jsx'
 import { BulkBar } from '../common/BulkBar.jsx'
 
 export function Reminders() {
-  const { reminders, addReminder, updateReminder, deleteReminder, dismissReminder, checkDue, bulkDeleteReminders } = useReminders()
+  const { reminders, addReminder, updateReminder, deleteReminder, dismissReminder, bulkDeleteReminders } = useRemindersContext()
   const [showForm, setShowForm] = useState(false)
   const [editingReminder, setEditingReminder] = useState(null)
   const [selectMode, setSelectMode] = useState(false)
   const [selectedIds, setSelectedIds] = useState(new Set())
-
-  useEffect(() => {
-    const interval = setInterval(checkDue, 30000)
-    return () => clearInterval(interval)
-  }, [checkDue])
 
   const handleSubmit = (data) => {
     if (editingReminder) {
