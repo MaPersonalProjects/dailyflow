@@ -66,6 +66,20 @@ export function Tasks() {
     setShowForm(true)
   }
 
+  const handleToggleComplete = (id, date) => {
+    const task = tasks.find((t) => t.id === id)
+    const wasCompleted = isTaskCompletedOn(task, date)
+    toggleComplete(id, date)
+    const linked = reminders.find((r) => r.sourceId === id && r.sourceType === 'task')
+    if (linked) {
+      if (!wasCompleted) {
+        updateReminder(linked.id, { done: true })
+      } else {
+        updateReminder(linked.id, { done: false, notified: false })
+      }
+    }
+  }
+
   const toggleSelect = (id) => {
     setSelectedIds((prev) => {
       const next = new Set(prev)
@@ -129,7 +143,7 @@ export function Tasks() {
       <div className={selectMode ? 'pb-20' : ''}>
         <TaskList
           tasks={filtered}
-          onToggle={toggleComplete}
+          onToggle={handleToggleComplete}
           onDelete={handleDelete}
           onEdit={handleEdit}
           onReorder={reorderTasks}
