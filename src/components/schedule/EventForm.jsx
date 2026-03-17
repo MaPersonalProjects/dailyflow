@@ -13,6 +13,7 @@ export function EventForm({ onSubmit, onClose, initial, defaultDate }) {
     color: initial?.color || 'blue',
     notes: initial?.notes || '',
     recurring: initial?.recurring || 'none',
+    addToReminder: initial?.addToReminder ?? false,
   })
 
   const set = (field) => (e) => setForm((f) => ({ ...f, [field]: e.target.value }))
@@ -90,6 +91,18 @@ export function EventForm({ onSubmit, onClose, initial, defaultDate }) {
             <textarea value={form.notes} onChange={set('notes')} rows={2} placeholder="Optional notes..."
               className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none" />
           </div>
+
+          {form.date && form.startTime && (
+            <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={form.addToReminder}
+                onChange={(e) => setForm((f) => ({ ...f, addToReminder: e.target.checked }))}
+                className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+              />
+              Add to Reminders
+            </label>
+          )}
 
           <div className="flex gap-2 pt-1">
             <button type="button" onClick={onClose} className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-md text-sm font-medium hover:bg-gray-50">Cancel</button>

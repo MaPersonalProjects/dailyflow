@@ -49,7 +49,9 @@ export function Schedule() {
   }
 
   const handleEdit = (event) => {
-    setEditingEvent(event)
+    const realId = toRealId(event.id)
+    const hasLinkedReminder = reminders.some((r) => toRealId(r.sourceId) === realId && r.sourceType === 'event')
+    setEditingEvent({ ...event, addToReminder: hasLinkedReminder })
     setShowForm(true)
   }
 
@@ -61,20 +63,22 @@ export function Schedule() {
       const updatedEvent = { ...editingEvent, ...formData }
       const datetime = buildEventDatetime(updatedEvent)
       const linked = reminders.find((r) => toRealId(r.sourceId) === realId && r.sourceType === 'event')
-      if (linked) {
-        if (datetime) {
+      if (data.addToReminder) {
+        if (linked) {
           updateReminder(linked.id, { title: updatedEvent.title, datetime, notified: false })
-        } else {
-          deleteReminder(linked.id)
+        } else if (datetime) {
+          addReminder({ title: updatedEvent.title, datetime, recurring: 'none', sourceId: realId, sourceType: 'event', notified: false, done: false })
         }
-      } else if (datetime) {
-        addReminder({ title: updatedEvent.title, datetime, recurring: 'none', sourceId: realId, sourceType: 'event', notified: false, done: false })
+      } else if (linked) {
+        deleteReminder(linked.id)
       }
     } else {
       const newEvent = addEvent(formData)
-      const datetime = buildEventDatetime(newEvent)
-      if (datetime && !reminders.some((r) => toRealId(r.sourceId) === newEvent.id && r.sourceType === 'event')) {
-        addReminder({ title: newEvent.title, datetime, recurring: 'none', sourceId: newEvent.id, sourceType: 'event', notified: false, done: false })
+      if (data.addToReminder) {
+        const datetime = buildEventDatetime(newEvent)
+        if (datetime) {
+          addReminder({ title: newEvent.title, datetime, recurring: 'none', sourceId: newEvent.id, sourceType: 'event', notified: false, done: false })
+        }
       }
     }
     setShowForm(false)
@@ -223,13 +227,7 @@ export function Schedule() {
         <ImportModal
           mode="schedule"
           onImportSchedule={(events) => {
-            const newEvents = bulkAddEvents(events)
-            newEvents.forEach((ev) => {
-              const datetime = buildEventDatetime(ev)
-              if (datetime && !reminders.some((r) => toRealId(r.sourceId) === ev.id && r.sourceType === 'event')) {
-                addReminder({ title: ev.title, datetime, recurring: 'none', sourceId: ev.id, sourceType: 'event', notified: false, done: false })
-              }
-            })
+            bulkAddEvents(events)
             setShowImport(false)
           }}
           onClose={() => setShowImport(false)}

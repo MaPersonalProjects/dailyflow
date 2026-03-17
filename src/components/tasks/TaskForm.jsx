@@ -76,6 +76,7 @@ export function TaskForm({ onSubmit, onClose, initial }) {
     dueTime: initial?.dueTime ?? '',
     recurring: initial?.recurring ?? 'none',
     recurringDays: initial?.recurringDays ?? [],
+    addToReminder: initial?.addToReminder ?? false,
   })
 
   const handleSubmit = (e) => {
@@ -145,6 +146,16 @@ export function TaskForm({ onSubmit, onClose, initial }) {
             onChange={(key) => setVal('recurring', key)}
             onDaysChange={(days) => setVal('recurringDays', days)}
           />
+
+          <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={form.addToReminder}
+              onChange={(e) => setForm((f) => ({ ...f, addToReminder: e.target.checked }))}
+              className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+            />
+            Add to Reminders
+          </label>
 
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Notes</label>
